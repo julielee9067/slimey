@@ -1,0 +1,169 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  width: 100%; height: 100%; overflow: hidden; background: transparent;
+  user-select: none; -webkit-user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
+}
+/* 창 어디를 잡아도 옮겨진다. 슬라임은 JS 로 직접 끌고(클릭과 구분), 목록은 클릭만 받는다. */
+body { -webkit-app-region: drag; }
+.hit, .list { -webkit-app-region: no-drag; }
+
+.stage { position: absolute; left: 0; right: 0; bottom: 8px; height: 120px; }
+
+/* 슬라임 본체: SVG 프레임(src/renderer/slime/*.svg)을 상태에 따라 갈아 끼운다. 크기는 JS 가 --size 로 준다. */
+.slime {
+  --size: 1; --food: 0;
+  position: absolute; left: 50%; bottom: -6px;
+  width: 130px; height: 130px;
+  transform-origin: 50% 100%;
+  transform: translateX(-50%) scale(var(--size));
+  transition: transform .35s cubic-bezier(.2,1.6,.5,1);
+  pointer-events: none; /* 상자 전체가 아니라 .hit(몸통)만 클릭을 받는다 */
+}
+/* 클릭·드래그 영역 = 몸통 (viewBox 64~256 × 66~244 를 130px 상자로 환산) */
+.hit {
+  position: absolute; left: 26px; top: 27px; width: 78px; height: 72px;
+  border-radius: 50% 50% 45% 45% / 60% 60% 40% 40%;
+  pointer-events: auto; cursor: grab;
+}
+/* 파라미터는 JS 가 CSS 변수로 준다. transition 이 프레임 사이를 채운다 */
+.slime {
+  --ty: 0; --sk: 0deg; --sx: 1; --sy: 1;            /* 몸통 (ty 는 viewBox 단위, 320 기준) */
+  --shx: 1; --shy: 1; --sho: .2;                    /* 그림자 */
+  --ex: 0px; --ey: 0px; --esx: 1; --esy: 1;         /* 눈 */
+}
+.ground, .face { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.ground { transform-origin: 50% 80.6%; transform: scale(var(--shx), var(--shy)); opacity: var(--sho); transition: transform .22s, opacity .22s; will-change: transform, opacity; }
+.face {
+  transform-origin: 50% 76.25%; /* 몸통 바닥 (244/320) */
+  transform: translateY(calc(var(--ty) * 100% / 320)) skewX(var(--sk)) scale(var(--sx), var(--sy));
+  transition: transform .22s cubic-bezier(.3,1.5,.5,1);
+  will-change: transform;
+  /* 토큰을 많이 먹으면 색이 진해진다. 정적 filter */
+  filter: saturate(calc(1 + var(--food) * 0.35)) hue-rotate(calc(var(--food) * -6deg));
+}
+.eye { transform: translate(var(--ex), var(--ey)) scale(var(--esx), var(--esy)); transition: transform .18s ease; }
+.eye:nth-child(1) { transform-origin: 136px 162px; }
+.eye:nth-child(2) { transform-origin: 184px 162px; }
+.dot, .alt { opacity: 0; transition: opacity .12s; }
+.eyes-open { transition: opacity .12s; }
+[data-eyes="dot"] .dot { opacity: .9; }
+/* data-eyes 가 open/dot 이 아니면 기본 눈을 숨기고 같은 이름의 대체 눈을 켠다 */
+[data-eyes="line"] .eyes-line, [data-eyes="sad"] .eyes-sad, [data-eyes="happy"] .eyes-happy, [data-eyes="heart"] .eyes-heart,
+[data-eyes="wink"] .eyes-wink, [data-eyes="annoyed"] .eyes-annoyed, [data-eyes="sleepy"] .eyes-sleepy { opacity: 1; }
+.face:not([data-eyes="open"]):not([data-eyes="dot"]) .eyes-open { opacity: 0; }
+
+.sweat { position: absolute; top: 30px; right: 26px; font-size: 13px; display: none; }
+.slime.is-sweating .sweat { display: block; animation: drip 1.4s ease-in infinite; }
+@keyframes drip { 0% { translate: 0 0; opacity: 1; } 100% { translate: 0 22px; opacity: 0; } }
+
+/* 삼킨 봉투: 몸속에 비친다 (몸통은 이미지의 20~80% 구간) */
+.envelopes {
+  position: absolute; left: 34px; right: 34px; bottom: 36px;
+  display: flex; flex-wrap: wrap-reverse; justify-content: center; gap: 1px 3px;
+}
+.env {
+  font-size: 12px; opacity: .55; filter: saturate(.6);
+  animation: float 3s ease-in-out infinite;
+}
+.env:nth-child(2n) { animation-delay: -1.2s; }
+.env:nth-child(3n) { animation-delay: -2s; }
+@keyframes float { 0%,100% { translate: 0 0; } 50% { translate: 0 -4px; } }
+.env.is-stale { opacity: 1; filter: none; animation: alarm 1s steps(2) infinite; }
+@keyframes alarm { 50% { opacity: .3; } }
+
+/* 작업 중인 세션 수: 슬라임 우측 상단의 볼록한 말풍선 배지 (애니메이션 없음, CPU 아낌) */
+.count {
+  position: absolute; left: 50%; bottom: 82px; margin-left: 30px;
+  min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px 11px 11px 3px;
+  display: grid; place-items: center; font-size: 12px; font-weight: 700; color: #fff;
+  background: radial-gradient(circle at 30% 25%, rgba(255,255,255,.55), transparent 40%), linear-gradient(180deg, #ff8ec2, #e8479a);
+  box-shadow: inset 0 -2px 3px rgba(150,20,90,.35), 0 2px 5px rgba(0,0,0,.2);
+  pointer-events: none;
+}
+.count[hidden] { display: none; } /* display: grid 가 UA 의 [hidden] 규칙을 덮어서 명시 */
+
+/* 내 차례: 머리 위 말풍선이 통통. 어느 세션인지 적혀 있다 */
+.badge {
+  position: absolute; left: 50%; bottom: 104px; translate: -50% 0;
+  max-width: 270px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 11px; font-weight: 600; padding: 4px 9px; border-radius: 10px;
+  background: #fff; color: #14171a; box-shadow: 0 2px 6px rgba(0,0,0,.2);
+  pointer-events: none;
+}
+.count[hidden] { display: none; } /* display: grid 가 UA 의 [hidden] 규칙을 덮어서 명시 */
+.badge::after { /* 꼬리 */
+  content: ''; position: absolute; left: 50%; bottom: -5px; translate: -50% 0;
+  border: 5px solid transparent; border-top-color: #fff; border-bottom: 0;
+}
+@media (prefers-color-scheme: dark) { .badge { background: #23262b; color: #f2f4f7; } .badge::after { border-top-color: #23262b; } }
+
+/* splash: 벽에 닿으면 튀는 방울. 한 번 쓰고 사라진다 */
+.drop {
+  position: absolute; width: var(--r); height: var(--r); border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffd1e4, #ff8db9 60%, #c95a8a);
+  opacity: .9; animation: splat .6s cubic-bezier(.2,.6,.4,1) forwards;
+}
+@keyframes splat { to { translate: var(--dx) var(--dy); scale: .3; opacity: 0; } }
+
+/* 하트, 한숨 (점프는 B 프레임 시퀀스가 대신한다) */
+.fx { position: absolute; inset: 0; pointer-events: none; }
+.pop {
+  position: absolute; left: 50%; bottom: 100px; font-size: 20px;
+  animation: pop 1.2s ease-out forwards;
+}
+@keyframes pop {
+  0% { translate: -50% 0; scale: .5; opacity: 0; }
+  20% { opacity: 1; scale: 1.2; }
+  100% { translate: calc(-50% + var(--dx)) -50px; scale: .9; opacity: 0; }
+}
+.slime.is-jump { animation: jump .5s ease-out 2; }
+@keyframes jump { 50% { translate: -50% -24px; } }
+
+/* 클릭하면 머리 위 PR 목록. 별도 창(body.is-list)에 그려지고, 슬라임 창에선 숨긴다. 문구는 잘리지 않고 줄바꿈된다. */
+body:not(.is-list) .list, body.is-list .stage { display: none; }
+body.is-list { -webkit-app-region: no-drag; } /* 자식 창만 따로 끌려가지 않게 */
+.list {
+  position: absolute; left: 8px; right: 8px; bottom: 0;
+  list-style: none; background: #fff; color: #14171a;
+  border-radius: 12px; padding: 6px; box-shadow: 0 8px 24px rgba(0,0,0,.25);
+  font-size: 12px; max-height: 100%; overflow: auto;
+  transition: opacity .2s, translate .2s cubic-bezier(.2,1.4,.5,1);
+}
+.list:not(.is-open) { opacity: 0; translate: 0 16px; pointer-events: none; }
+@media (prefers-color-scheme: dark) { .list { background: #23262b; color: #f2f4f7; } }
+.list li { padding: 6px 8px; border-radius: 8px; cursor: pointer; overflow-wrap: anywhere; line-height: 1.4; }
+.list li:hover { background: rgba(255,125,180,.2); }
+.list .date { white-space: nowrap; opacity: .5; }
+.list li small { opacity: .6; }
+.list .empty { opacity: .6; text-align: center; cursor: default; }
+.list .head { font-weight: 700; font-size: 11px; opacity: .7; cursor: default; padding-bottom: 2px; }
+.list .head:hover, .list .sess:hover { background: none; }
+.list .sess { cursor: default; }
+.list .repo { font-weight: 600; cursor: default; padding-bottom: 0; }
+.list .repo:hover { background: none; }
+.list .sess { padding-left: 16px; }
+.list .meta { padding-left: 20px; font-size: 11px; opacity: .7; margin-top: 2px; }
+.list code { font-family: ui-monospace, Menlo, monospace; font-size: 10px; background: rgba(127,127,127,.12); padding: 0 4px; border-radius: 4px; }
+.list .tabs { display: flex; gap: 4px; padding: 4px 0; cursor: default; }
+.list .tabs:hover { background: none; }
+.tab {
+  flex: 1; border: 0; border-radius: 8px; padding: 5px 0; font: inherit; font-size: 11px; cursor: pointer;
+  background: rgba(127,127,127,.12); color: inherit;
+}
+.tab.is-on { background: rgba(255,125,180,.25); font-weight: 700; }
+/* 토큰 사용량: 숫자 + 퍼센트 막대 */
+.list .usage { cursor: default; }
+.list .usage:hover { background: none; }
+.list .usage .pct { float: right; }
+.bar { height: 5px; margin-top: 4px; border-radius: 3px; background: rgba(127,127,127,.15); overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #ffb6d6, #ff76b2); }
+.usage.is-full .bar i { background: #e5484d; }
+/* 세션 상태: 이모지 대신 작은 색 점 */
+.list .sess::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; vertical-align: 1px; background: #c4c8cf; }
+.list .sess.is-working::before { background: #34c759; }
+.list .sess.is-waiting::before { background: #f5b301; }
+/* PR 상태 태그 */
+.tag { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 6px; background: rgba(127,127,127,.15); vertical-align: 1px; }
+.tag.is-changes { background: rgba(245,179,1,.25); }
+.tag.is-approved { background: rgba(52,199,89,.25); }

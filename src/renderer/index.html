@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; script-src 'self';" />
+  <title>Slimey</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <ul id="list" class="list"></ul>
+  <div id="stage" class="stage">
+    <div id="slime" class="slime">
+      <!-- pink_slime_frames 의 E1 을 파라미터화한 것. 몸통·그림자·눈은 CSS 변수로 움직이고 transition 이 중간 프레임을 만든다 -->
+      <svg class="ground" viewBox="0 0 320 320" aria-hidden="true">
+        <defs><filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="8"/></filter></defs>
+        <ellipse cx="160" cy="258" rx="92" ry="16" fill="#924267" filter="url(#shadow)"/>
+      </svg>
+      <!-- 몸통·그림자의 transform 은 <svg> 요소 자체에 건다: 합성 레이어라 필터를 다시 그리지 않는다 -->
+      <svg id="face" class="face" viewBox="0 0 320 320" data-eyes="open" aria-hidden="true">
+        <defs>
+          <radialGradient id="clay" cx="0.42" cy="0.28" r="0.85"><stop offset="0" stop-color="#ffcce0"/><stop offset="0.55" stop-color="#FF8DB9"/><stop offset="1" stop-color="#924267"/></radialGradient>
+          <radialGradient id="rim" cx="0.5" cy="0.9" r="0.7"><stop offset="0.6" stop-color="#FF8DB9" stop-opacity="0"/><stop offset="1" stop-color="#ffcce0" stop-opacity="0.9"/></radialGradient>
+          <radialGradient id="eyeg" cx="0.5" cy="0.35" r="0.75"><stop offset="0" stop-color="#4A2A3C"/><stop offset="1" stop-color="#1E0C16"/></radialGradient>
+          <radialGradient id="heartg" cx="0.4" cy="0.3" r="0.8"><stop offset="0" stop-color="#FF6B9E"/><stop offset="0.7" stop-color="#E8386F"/><stop offset="1" stop-color="#A3163F"/></radialGradient>
+          <filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="5"/></filter>
+          <filter id="ao" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="10"/></filter>
+          <filter id="eyeshadow" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="3" stdDeviation="2.5" flood-color="#924267" flood-opacity="0.55"/></filter>
+        </defs>
+        <g id="body">
+          <g class="jelly" opacity="0.75">
+            <path d="M160,66 C220,66 254,112 256,166 C258,214 222,244 160,244 C98,244 62,214 64,166 C66,112 100,66 160,66 Z" fill="url(#clay)"/>
+            <path d="M160,66 C220,66 254,112 256,166 C258,214 222,244 160,244 C98,244 62,214 64,166 C66,112 100,66 160,66 Z" fill="url(#rim)"/>
+            <ellipse cx="160" cy="226" rx="70" ry="14" fill="#924267" opacity="0.35" filter="url(#ao)"/>
+          </g>
+          <ellipse cx="122" cy="106" rx="30" ry="18" transform="rotate(-30 122 106)" fill="#fff" opacity="0.5" filter="url(#glow)"/>
+          <ellipse cx="118" cy="104" rx="20" ry="10" transform="rotate(-30 118 104)" fill="#fff" opacity="0.75"/>
+          <g id="eyes" filter="url(#eyeshadow)">
+            <g class="eyes-open">
+              <g class="eye"><ellipse cx="136" cy="162" rx="8" ry="13" fill="url(#eyeg)"/><ellipse cx="134.4" cy="154.8" rx="4" ry="2.9" fill="#fff" opacity="0.35"/><circle class="dot" cx="136" cy="162" r="4" fill="#fff" opacity="0.9"/></g>
+              <g class="eye"><ellipse cx="184" cy="162" rx="8" ry="13" fill="url(#eyeg)"/><ellipse cx="182.4" cy="154.8" rx="4" ry="2.9" fill="#fff" opacity="0.35"/><circle class="dot" cx="184" cy="162" r="4" fill="#fff" opacity="0.9"/></g>
+            </g>
+            <g class="alt eyes-line" stroke="#2E1524" stroke-width="8" stroke-linecap="round" fill="none"><path d="M126,162 H146"/><path d="M174,162 H194"/></g>
+            <g class="alt eyes-sad" stroke="#2E1524" stroke-width="8" stroke-linecap="round" fill="none"><path d="M124,156 Q136,172 148,156"/><path d="M172,156 Q184,172 196,156"/></g>
+            <g class="alt eyes-happy" stroke="#2E1524" stroke-width="8" stroke-linecap="round" fill="none"><path d="M124,168 Q136,150 148,168"/><path d="M172,168 Q184,150 196,168"/></g>
+            <g class="alt eyes-wink"><ellipse cx="136" cy="162" rx="8" ry="13" fill="#2E1524"/><path d="M172,168 Q184,150 196,168" stroke="#2E1524" stroke-width="8" stroke-linecap="round" fill="none"/></g>
+            <g class="alt eyes-annoyed" stroke="#2E1524" stroke-width="8" stroke-linecap="round" fill="none"><path d="M125,155 L147,167"/><path d="M195,155 L173,167"/></g>
+            <g class="alt eyes-sleepy" fill="#2E1524"><path d="M127,160 a9,12 0 0,0 18,0 Z"/><path d="M175,160 a9,12 0 0,0 18,0 Z"/><path d="M126,160 H146" stroke="#2E1524" stroke-width="8" stroke-linecap="round"/><path d="M174,160 H194" stroke="#2E1524" stroke-width="8" stroke-linecap="round"/></g>
+            <g class="alt eyes-heart">
+              <g transform="rotate(-8 136 162)"><path d="M136,175 C120,165 120,151 128,151 C132,151 135,154 136,157 C137,154 140,151 144,151 C152,151 152,165 136,175 Z" fill="url(#heartg)"/><ellipse cx="130" cy="156" rx="3.5" ry="2.2" transform="rotate(-25 130 156)" fill="#fff" opacity="0.45"/></g>
+              <g transform="rotate(8 184 162)"><path d="M184,175 C168,165 168,151 176,151 C180,151 183,154 184,157 C185,154 188,151 192,151 C200,151 200,165 184,175 Z" fill="url(#heartg)"/><ellipse cx="178" cy="156" rx="3.5" ry="2.2" transform="rotate(-25 178 156)" fill="#fff" opacity="0.45"/></g>
+            </g>
+          </g>
+        </g>
+      </svg>
+      <div id="hit" class="hit"></div>
+      <div class="sweat">💧</div>
+      <div id="envelopes" class="envelopes"></div>
+    </div>
+    <div id="badge" class="badge" hidden></div>
+    <div id="count" class="count" hidden></div>
+    <div id="fx" class="fx"></div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
