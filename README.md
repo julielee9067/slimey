@@ -4,36 +4,36 @@
 
 Electron 앱. macOS 기준, Windows 도 됨 (아래). 런타임 의존성 없음. 데이터는 전부 로컬에서 읽음.
 
-## 설치와 실행
-
-```bash
-npm install
-npm start          # 슬라임 띄우기
-npm run check      # 창 없이 세션 표와 PR 조회 결과만 터미널에 출력
-```
-
-macOS Apple Silicon 기준 (`build` 가 arm64 로 고정). Intel 이면 `package.json` 의 `--arch=x64`.
-
-### 앱으로 설치
-
-터미널 없이 상주시키고 싶을 때.
+## 설치
 
 ```sh
-npm run build                                   # dist/Slimey-darwin-arm64/Slimey.app 생성
-cp -r "dist/Slimey-darwin-arm64/Slimey.app" /Applications/
-open "/Applications/Slimey.app"
+make setup     # npm install
+make install   # 빌드 → /Applications/Slimey.app 로 설치 → 실행
 ```
 
-- .app 으로 띄우면 로그인 시 자동 실행 켜짐. 끄려면 시스템 설정 → 로그인 항목
-- 코드 수정 후엔 다시 `npm run build` → 복사
-- 아이콘 모양 변경: `scripts/tray-icon.py` 수정 후 `npm run icon`
+이게 기본. 메뉴바에 슬라임 아이콘이 생기고 로그인할 때 자동으로 뜬다. 끄려면 메뉴바 아이콘 → `Slimey 종료`.
+
+- macOS Apple Silicon 기준 (arm64). Intel 이면 `package.json` 의 `--arch=x64`
+- 코드 수정 후엔 다시 `make install`. 실행 중인 앱을 끄고 `/Applications` 의 앱을 지운 뒤 새로 복사한다 (기존 앱 위에 `cp -r` 하면 프레임워크 심링크에서 실패)
 - 서명 안 한 앱이라 처음 열 때 Gatekeeper 가 막을 수 있음. 우클릭 → 열기
-- `.app` 과 `npm start` 는 같은 단일 인스턴스 락을 씀. `.app` 이 떠 있으면 `npm start` 는 조용히 종료
+- 자동 실행 끄려면 시스템 설정 → 로그인 항목
+- 앱(Finder·독) 아이콘은 빌드 때 렌더러의 슬라임을 찍어서 만든다 (`make app-icon`, `build/icon.icns`). 바꾼 뒤 옛 아이콘이 계속 보이면 macOS 아이콘 캐시: `sudo rm -rf /Library/Caches/com.apple.iconservices.store; killall Dock Finder`
+- 메뉴바 아이콘 모양 변경: `scripts/tray-icon.py` 수정 후 `make icon`
+
+### 개발용 실행
+
+```sh
+make start     # 터미널에 붙어서 실행. 코드 바로 확인할 때
+make check     # 창 없이 세션 표와 PR 조회 결과만 터미널에 출력
+make           # 명령 목록
+```
+
+`.app` 과 `make start` 는 같은 단일 인스턴스 락을 씀. `.app` 이 떠 있으면 `make start` 는 조용히 종료하니 먼저 `Slimey 종료`.
 
 ### Windows
 
 ```sh
-npm run build:win                               # dist/Slimey-win32-x64/Slimey.exe 생성
+make win       # dist/Slimey-win32-x64/Slimey.exe 생성 (make 없으면 npm run build:win)
 ```
 
 - `gh` 는 `winget install GitHub.cli`
@@ -62,10 +62,10 @@ gh auth login          # github.com 이면 끝
 
 GitHub Enterprise 면 호스트를 알려줘야 함. 둘 중 하나:
 
-- 셸 환경변수: `GH_HOST=ghe.example.com npm start`
-- `.env` 파일: `cp .env.example .env` 하고 `GH_HOST=ghe.example.com` 적기. `npm run build` 하면 `.app` 안에 같이 들어가서 앱으로 띄울 때도 적용됨
+- 셸 환경변수: `GH_HOST=ghe.example.com make start`
+- `.env` 파일: `cp .env.example .env` 하고 `GH_HOST=ghe.example.com` 적기. `make install` 하면 `.app` 안에 같이 들어가서 앱으로 띄울 때도 적용됨
 
-셸 환경변수가 `.env` 보다 우선. 확인은 `npm run check` (PR 목록 JSON 이 나오면 됨).
+셸 환경변수가 `.env` 보다 우선. 확인은 `make check` (PR 목록 JSON 이 나오면 됨).
 
 ### 2. Claude Code
 
@@ -96,7 +96,7 @@ GitHub Enterprise 면 호스트를 알려줘야 함. 둘 중 하나:
 | :---: | :---: | :---: |
 | ![](docs/pressed.png) | ![](docs/dragging.png) | <img src="docs/list.png" width="300"> |
 
-이미지는 `npm run shots` 로 다시 만든다 (`scripts/shots.js`, 가짜 상태를 넣고 실제 렌더러를 캡처).
+이미지는 `make shots` 로 다시 만든다 (`scripts/shots.js`, 가짜 상태를 넣고 실제 렌더러를 캡처).
 
 ## 주요 기능
 
@@ -218,7 +218,7 @@ GitHub Enterprise 면 호스트를 알려줘야 함. 둘 중 하나:
 - **Claude**: Keychain `Claude Code-credentials` → `api.anthropic.com/api/oauth/usage`. 5시간·7일 %
 - **Codex**: `~/.codex/auth.json` → `chatgpt.com/backend-api/wham/usage`. rate_limit 창 기준, business 플랜은 spend_control 크레딧 %
 
-자주 호출하면 429 발생. 개발 중 `npm run check` 나 앱 재시작을 반복하면 금방 막힘.
+자주 호출하면 429 발생. 개발 중 `make check` 나 앱 재시작을 반복하면 금방 막힘.
 
 - 실패 시 마지막 값 유지
 - 다음 시도 간격은 두 배씩 늘림 (최대 20분)
