@@ -143,6 +143,17 @@ function aliveCwds() {
   } catch { return null; }
 }
 
+/** 종료 중에 커널에서 멈춘 pid 들(ps STAT 에 Z 또는 E). 터미널을 닫아도 남는 좀비. ps 가 없으면(Windows) 빈 집합. */
+function stuck(pids) {
+  const out = new Set();
+  if (!pids.length) return out;
+  try {
+    const ps = execFileSync('ps', ['-o', 'pid=,stat=', '-p', pids.join(',')], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    for (const l of ps.split('\n')) { const [pid, stat] = l.trim().split(/\s+/); if (/[ZE]/.test(stat || '')) out.add(Number(pid)); }
+  } catch { /* ps 없음 */ }
+  return out;
+}
+
 /** 살아있는 세션만, 같은 repo 가 이웃하도록 정렬(repo 는 가장 최근 활동 순, 그 안은 활동 순). 화면에서 repo 헤더 아래 나열한다. */
 function alive(list, cwds) {
   const kept = list.filter((s) => s.agent === 'claude' || s.state === 'working' || !cwds || cwds.has(s.cwd));
@@ -205,7 +216,8 @@ function readAgents() {
       idleMs: now - s.mtime,
     });
   }
-  return { sessions: alive(out, cwds), usage };
+  const dead = stuck(out.map((s) => s.pid).filter(Boolean));
+  return { sessions: alive(out.filter((s) => !dead.has(s.pid)), cwds), usage };
 }
 
 module.exports = { readAgents, classify, alive, topicOf };
