@@ -113,8 +113,19 @@ function classify(last, ageMs) {
   return last === 'said' && ageMs < WAITING_MS ? 'waiting' : 'idle';
 }
 
-/** 살아있는 Claude Code 세션: ~/.claude/sessions/<pid>.json → sessionId → status(busy|idle). pid 가 죽었으면 뺀다. */
-function claudeRegistry() {
+/** 살아있는 pid 집합. 종료 중에 커널에서 멈춘 것(ps STAT 에 Z 또는 E, 터미널을 닫아도 남는 좀비)은 뺀다. ps 가 없으면(Windows) null. */
+function livePids() {
+  try {
+    const ps = execFileSync('ps', ['-axo', 'pid=,stat='], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    const out = new Set();
+    for (const l of ps.split('\n')) { const [pid, stat] = l.trim().split(/\s+/); if (pid && !/[ZE]/.test(stat)) out.add(Number(pid)); }
+    return out;
+  } catch { return null; }
+}
+const isLive = (live, pid) => live ? live.has(pid) : (() => { try { process.kill(pid, 0); return true; } catch { return false; } })();
+
+/** 살아있는 Claude Code 세션: ~/.claude/sessions/<pid>.json → sessionId → {status(busy|idle), pid}. pid 가 죽었으면 뺀다. */
+function claudeRegistry(live) {
   const dir = path.join(os.homedir(), '.claude', 'sessions');
   const out = new Map();
   let files = [];
@@ -122,18 +133,23 @@ function claudeRegistry() {
   for (const f of files) {
     try {
       const r = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
-      process.kill(r.pid, 0); // 죽은 pid 면 throw
-      out.set(r.sessionId, r.status);
-    } catch { /* 죽었거나 깨진 파일 */ }
+      if (isLive(live, r.pid)) out.set(r.sessionId, { status: r.status, pid: r.pid });
+    } catch { /* 깨진 파일 */ }
   }
   return out;
 }
 
-/** 지금 떠 있는 codex 프로세스의 cwd 집합. lsof 가 없으면 null(모른다). Codex 는 세션 레지스트리가 없어서 이걸로 판별. */
-function aliveCwds() {
+/** 지금 떠 있는 codex 프로세스: cwd → [pid]. lsof 가 없으면 null(모른다). Codex 는 세션 레지스트리가 없어서 cwd 로 판별. */
+function codexByCwd(live) {
   try {
-    const out = execFileSync('lsof', ['-a', '-d', 'cwd', '-c', 'codex', '-Fn'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
-    return new Set(out.split('\n').filter((l) => l[0] === 'n').map((l) => l.slice(1)));
+    const out = execFileSync('lsof', ['-a', '-d', 'cwd', '-c', 'codex', '-Fpn'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    const m = new Map();
+    let pid = null;
+    for (const l of out.split('\n')) {
+      if (l[0] === 'p') pid = Number(l.slice(1));
+      else if (l[0] === 'n' && isLive(live, pid)) m.set(l.slice(1), [...(m.get(l.slice(1)) || []), pid]);
+    }
+    return m;
   } catch { return null; }
 }
 
@@ -166,7 +182,9 @@ function readAgents() {
   discover();
   const now = Date.now();
   const out = [];
-  const reg = claudeRegistry();
+  const live = livePids();
+  const reg = claudeRegistry(live);
+  const cwds = codexByCwd(live);
   const usage = {};
   for (const { agent } of ROOTS) usage[agent] = { today: { input: 0, output: 0 }, month: { input: 0, output: 0 } };
   for (const s of sessions.values()) {
@@ -177,13 +195,15 @@ function readAgents() {
     if (s.mtime >= dayStart()) { u.today.input += s.input; u.today.output += s.output; }
     if (now - s.mtime > RECENT_MS) continue;
     let state = classify(s.last, now - s.mtime);
+    const r = s.agent === 'claude' && reg.get(path.basename(s.file, '.jsonl'));
     if (s.agent === 'claude') {
-      const status = reg.get(path.basename(s.file, '.jsonl'));
-      if (!status) continue; // 닫힌 세션
-      state = status === 'busy' ? 'working' : 'waiting'; // idle = 말 끝내고 내 차례
+      if (!r) continue; // 닫힌 세션
+      state = r.status === 'busy' ? 'working' : 'waiting'; // idle = 말 끝내고 내 차례
     }
+    const codexPids = cwds?.get(s.cwd) || [];
     out.push({
       agent: s.agent,
+      pid: r ? r.pid : (codexPids.length === 1 ? codexPids[0] : null), // 같은 cwd 에 codex 가 둘이면 어느 게 이 세션인지 몰라서 × 없음
       cwd: s.cwd,
       project: s.cwd ? path.basename(s.cwd) : '?',
       topic: s.title || s.topic,
@@ -195,7 +215,7 @@ function readAgents() {
       idleMs: now - s.mtime,
     });
   }
-  return { sessions: alive(out, aliveCwds()), usage };
+  return { sessions: alive(out, cwds), usage };
 }
 
 module.exports = { readAgents, classify, alive, topicOf };
