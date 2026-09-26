@@ -4,6 +4,73 @@
 
 macOS 용 Electron 앱. 런타임 의존성 없음. 데이터는 전부 로컬에서 읽음.
 
+## 설치와 실행
+
+```bash
+npm install
+npm start          # 슬라임 띄우기
+npm run check      # 창 없이 세션 표와 PR 조회 결과만 터미널에 출력
+```
+
+macOS Apple Silicon 기준 (`build` 가 arm64 로 고정). Intel 이면 `package.json` 의 `--arch=x64`.
+
+### 앱으로 설치
+
+터미널 없이 상주시키고 싶을 때.
+
+```sh
+npm run build                                   # dist/Slimey-darwin-arm64/Slimey.app 생성
+cp -r "dist/Slimey-darwin-arm64/Slimey.app" /Applications/
+open "/Applications/Slimey.app"
+```
+
+- .app 으로 띄우면 로그인 시 자동 실행 켜짐. 끄려면 시스템 설정 → 로그인 항목
+- 코드 수정 후엔 다시 `npm run build` → 복사
+- 아이콘 모양 변경: `scripts/tray-icon.py` 수정 후 `npm run icon`
+- 서명 안 한 앱이라 처음 열 때 Gatekeeper 가 막을 수 있음. 우클릭 → 열기
+- `.app` 과 `npm start` 는 같은 단일 인스턴스 락을 씀. `.app` 이 떠 있으면 `npm start` 는 조용히 종료
+
+## 설정
+
+앱 자체 설정 파일은 없음. 이미 깔린 CLI 들의 로그인 상태와 로그를 그대로 읽는다. 필요한 것만 맞추면 됨.
+
+| 기능 | 필요한 것 | 없으면 |
+| --- | --- | --- |
+| PR 알림 | `gh` CLI 설치 + `gh auth login` | PR 섹션 비어 있음. 메뉴에서 `리뷰 요청 받은 PR`/`내 PR` 끄면 gh 안 부름 |
+| Claude 세션 | Claude Code 를 한 번이라도 실행 (`~/.claude/projects`, `~/.claude/sessions`) | 탭 없음 |
+| Claude 한도 % | Claude Code 로그인 (Keychain `Claude Code-credentials`) | 한도 줄만 빠짐 |
+| Codex 세션 | Codex CLI 실행 이력 (`~/.codex/sessions`) + `lsof` (macOS 기본) | 탭 없음. 메뉴에서 `Codex 세션` 끄면 됨 |
+| Codex 한도 % | Codex 로그인 (`~/.codex/auth.json`) | 한도 줄만 빠짐 |
+
+### 1. gh CLI
+
+```sh
+brew install gh
+gh auth login          # github.com 이면 끝
+```
+
+GitHub Enterprise 면 호스트를 알려줘야 함. 둘 중 하나:
+
+- 셸 환경변수: `GH_HOST=ghe.example.com npm start`
+- `.env` 파일: `cp .env.example .env` 하고 `GH_HOST=ghe.example.com` 적기. `npm run build` 하면 `.app` 안에 같이 들어가서 앱으로 띄울 때도 적용됨
+
+셸 환경변수가 `.env` 보다 우선. 확인은 `npm run check` (PR 목록 JSON 이 나오면 됨).
+
+### 2. Claude Code
+
+따로 할 것 없음. 로그인돼 있으면 됨. 처음 띄울 때 macOS 가 Keychain 접근을 물어보면 **항상 허용**. 거부하면 한도 % 만 안 나옴.
+
+### 3. Codex
+
+따로 할 것 없음. 안 쓰면 메뉴바 → `Codex 세션` 체크 해제.
+
+### 4. 환경변수 정리
+
+| 변수 | 기본값 | 용도 |
+| --- | --- | --- |
+| `GH_HOST` | `github.com` | gh 가 호출할 GitHub 호스트 |
+| `SLIME_THROW` | 없음 | 개발용. 켜면 뜨자마자 슬라임을 한 번 던짐 |
+
 ## 모습
 
 | 기본 | 작업 중 (배지 = 세션 수) | 내 차례 (윙크 + 말풍선) |
@@ -106,73 +173,6 @@ macOS 용 Electron 앱. 런타임 의존성 없음. 데이터는 전부 로컬�
 - 한가할 때: 4~12초마다 랜덤 잔동작 (깜빡임, 웃음, 하트 눈, 졸림, 윙크, 짜증, 올려봄, 기울임, 깡총)
 - 내 차례일 때: 좌우 기울임으로 재촉
 - 슬플 때: 가만히 있음
-
-## 설정
-
-앱 자체 설정 파일은 없음. 이미 깔린 CLI 들의 로그인 상태와 로그를 그대로 읽는다. 필요한 것만 맞추면 됨.
-
-| 기능 | 필요한 것 | 없으면 |
-| --- | --- | --- |
-| PR 알림 | `gh` CLI 설치 + `gh auth login` | PR 섹션 비어 있음. 메뉴에서 `리뷰 요청 받은 PR`/`내 PR` 끄면 gh 안 부름 |
-| Claude 세션 | Claude Code 를 한 번이라도 실행 (`~/.claude/projects`, `~/.claude/sessions`) | 탭 없음 |
-| Claude 한도 % | Claude Code 로그인 (Keychain `Claude Code-credentials`) | 한도 줄만 빠짐 |
-| Codex 세션 | Codex CLI 실행 이력 (`~/.codex/sessions`) + `lsof` (macOS 기본) | 탭 없음. 메뉴에서 `Codex 세션` 끄면 됨 |
-| Codex 한도 % | Codex 로그인 (`~/.codex/auth.json`) | 한도 줄만 빠짐 |
-
-### 1. gh CLI
-
-```sh
-brew install gh
-gh auth login          # github.com 이면 끝
-```
-
-GitHub Enterprise 면 호스트를 알려줘야 함. 둘 중 하나:
-
-- 셸 환경변수: `GH_HOST=ghe.example.com npm start`
-- `.env` 파일: `cp .env.example .env` 하고 `GH_HOST=ghe.example.com` 적기. `npm run build` 하면 `.app` 안에 같이 들어가서 앱으로 띄울 때도 적용됨
-
-셸 환경변수가 `.env` 보다 우선. 확인은 `npm run check` (PR 목록 JSON 이 나오면 됨).
-
-### 2. Claude Code
-
-따로 할 것 없음. 로그인돼 있으면 됨. 처음 띄울 때 macOS 가 Keychain 접근을 물어보면 **항상 허용**. 거부하면 한도 % 만 안 나옴.
-
-### 3. Codex
-
-따로 할 것 없음. 안 쓰면 메뉴바 → `Codex 세션` 체크 해제.
-
-### 4. 환경변수 정리
-
-| 변수 | 기본값 | 용도 |
-| --- | --- | --- |
-| `GH_HOST` | `github.com` | gh 가 호출할 GitHub 호스트 |
-| `SLIME_THROW` | 없음 | 개발용. 켜면 뜨자마자 슬라임을 한 번 던짐 |
-
-## 실행
-
-```bash
-npm install
-npm start          # 슬라임 띄우기
-npm run check      # 창 없이 세션 표와 PR 조회 결과만 터미널에 출력
-```
-
-macOS Apple Silicon 기준 (`build` 가 arm64 로 고정). Intel 이면 `package.json` 의 `--arch=x64`.
-
-### 앱으로 설치
-
-터미널 없이 상주시키고 싶을 때.
-
-```sh
-npm run build                                   # dist/Slimey-darwin-arm64/Slimey.app 생성
-cp -r "dist/Slimey-darwin-arm64/Slimey.app" /Applications/
-open "/Applications/Slimey.app"
-```
-
-- .app 으로 띄우면 로그인 시 자동 실행 켜짐. 끄려면 시스템 설정 → 로그인 항목
-- 코드 수정 후엔 다시 `npm run build` → 복사
-- 아이콘 모양 변경: `scripts/tray-icon.py` 수정 후 `npm run icon`
-- 서명 안 한 앱이라 처음 열 때 Gatekeeper 가 막을 수 있음. 우클릭 → 열기
-- `.app` 과 `npm start` 는 같은 단일 인스턴스 락을 씀. `.app` 이 떠 있으면 `npm start` 는 조용히 종료
 
 ## 동작 방식
 
