@@ -8,13 +8,14 @@
   "scripts": {
     "start": "electron .",
     "check": "node src/agents.js && node src/pr.js && node src/usage.js",
-    "build": "electron-packager . Slimey --platform=darwin --arch=arm64 --out=dist --overwrite",
+    "build": "npm run app-icon && electron-packager . Slimey --platform=darwin --arch=arm64 --out=dist --overwrite --icon=build/icon.icns",
     "build:win": "electron-packager . Slimey --platform=win32 --arch=x64 --out=dist --overwrite",
     "icon": "python3 scripts/tray-icon.py",
+    "app-icon": "electron scripts/app-icon.js",
     "shots": "electron scripts/shots.js"
   },
   "devDependencies": {
     "@electron/packager": "^20.3.0",
-    "electron": "^33.2.0"
+    "electron": "^44.4.5"
   }
 }
