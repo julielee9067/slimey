@@ -1,14 +1,18 @@
 // 구독 한도 사용률. 로컬 로그엔 없고, 각 CLI 가 남긴 로그인 토큰으로 본 서비스 API 를 친다.
-//  Claude : Keychain "Claude Code-credentials" → api.anthropic.com/api/oauth/usage  (5시간·7일 utilization %)
+//  Claude : Keychain "Claude Code-credentials" (macOS) 또는 ~/.claude/.credentials.json → api.anthropic.com/api/oauth/usage  (5시간·7일 utilization %)
 //  Codex  : ~/.codex/auth.json → chatgpt.com/backend-api/wham/usage  (rate_limit 창, 없으면 spend_control 크레딧)
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
+function claudeCredentials() {
+  if (process.platform === 'darwin') return execFileSync('security', ['find-generic-password', '-s', 'Claude Code-credentials', '-w'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  return fs.readFileSync(path.join(os.homedir(), '.claude', '.credentials.json'), 'utf8');
+}
+
 async function claude() {
-  const raw = execFileSync('security', ['find-generic-password', '-s', 'Claude Code-credentials', '-w'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
-  const token = JSON.parse(raw).claudeAiOauth.accessToken;
+  const token = JSON.parse(claudeCredentials()).claudeAiOauth.accessToken;
   const res = await fetch('https://api.anthropic.com/api/oauth/usage', {
     headers: { Authorization: `Bearer ${token}`, 'anthropic-beta': 'oauth-2025-04-20' },
   });
