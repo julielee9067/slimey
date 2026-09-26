@@ -2,7 +2,7 @@
 
 화면 구석에 사는 반투명 슬라임. 리뷰 요청 PR 과 Claude Code·Codex 세션 상태를 표정과 몸짓으로 알려줌.
 
-macOS 용 Electron 앱. 런타임 의존성 없음. 데이터는 전부 로컬에서 읽음.
+Electron 앱. macOS 기준, Windows 도 됨 (아래). 런타임 의존성 없음. 데이터는 전부 로컬에서 읽음.
 
 ## 설치와 실행
 
@@ -29,6 +29,17 @@ open "/Applications/Slimey.app"
 - 아이콘 모양 변경: `scripts/tray-icon.py` 수정 후 `npm run icon`
 - 서명 안 한 앱이라 처음 열 때 Gatekeeper 가 막을 수 있음. 우클릭 → 열기
 - `.app` 과 `npm start` 는 같은 단일 인스턴스 락을 씀. `.app` 이 떠 있으면 `npm start` 는 조용히 종료
+
+### Windows
+
+```sh
+npm run build:win                               # dist/Slimey-win32-x64/Slimey.exe 생성
+```
+
+- `gh` 는 `winget install GitHub.cli`
+- Claude 한도 % 는 `~/.claude/.credentials.json` 에서 읽음 (Keychain 대신)
+- Codex 실행 감지(`lsof`)가 없어서 Codex 는 최근 활동한 세션을 모두 보여줌
+- 트레이 아이콘은 흰색 고정. 리뷰 수는 아이콘 옆 대신 툴팁에
 
 ## 설정
 

@@ -65,13 +65,15 @@ function push() {
 }
 
 // 트레이: 슬라임 아이콘(내 차례 세션이 있으면 말풍선 달린 버전) + 리뷰 대기 수. 메뉴는 켜기/끄기 체크박스 + 종료.
-const icon = (name) => nativeImage.createFromPath(path.join(__dirname, `${name}Template.png`)); // *Template 이라 다크/라이트 자동
+// macOS 는 *Template(검정, 다크/라이트 자동 반전). 그 외는 흰색 고정 (Windows 작업표시줄 기본이 어두움)
+const icon = (name) => nativeImage.createFromPath(path.join(__dirname, `${name}${process.platform === 'darwin' ? 'Template' : ''}.png`));
 const ICONS = { idle: icon('tray'), wait: icon('trayWait') };
 function refreshTray(v) {
   const n = v.prs.requested.length;
   const waiting = v.sessions.some((s) => s.state === 'waiting');
   tray.setImage(ICONS[waiting ? 'wait' : 'idle']);
-  tray.setTitle(n ? ` ${n}` : '');
+  tray.setTitle(n ? ` ${n}` : ''); // macOS 만
+  tray.setToolTip(n ? `Slimey · 리뷰 ${n}` : 'Slimey');
 }
 
 async function pollPRs() {

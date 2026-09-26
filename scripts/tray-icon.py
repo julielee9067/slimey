@@ -1,4 +1,4 @@
-"""메뉴바 템플릿 아이콘(검정 실루엣 슬라임, 눈 뚫림)을 PNG 로 그린다. wait=True 면 오른쪽 위에 말풍선. 의존성 없음. `npm run icon`."""
+"""메뉴바 아이콘(실루엣 슬라임, 눈 뚫림)을 PNG 로 그린다. *Template = 검정(macOS), 나머지 = 흰색(Windows). wait=True 면 오른쪽 위에 말풍선. 의존성 없음. `npm run icon`."""
 import struct, sys, zlib
 
 BUBBLE = ((15.3, 2.9), 2.4)  # 말풍선 중심, 반지름
@@ -16,14 +16,14 @@ def inside(x, y, wait=False):  # 18x18 좌표계. 바닥 중심 (9,16) 반타원
     bubble = dist(x, y, BUBBLE[0]) <= BUBBLE[1] or dist(x, y, TAIL[0]) <= TAIL[1]
     return (body and not eyes and not gap) or bubble
 
-def png(size, path, wait=False, ss=4):
+def png(size, path, wait=False, ss=4, rgb=(0, 0, 0)):
     rows = []
     for py in range(size):
         row = bytearray([0])  # filter none
         for px in range(size):
             hits = sum(inside((px + (i + .5) / ss) * 18 / size, (py + (j + .5) / ss) * 18 / size, wait)
                        for i in range(ss) for j in range(ss))
-            row += bytes([0, 0, 0, round(255 * hits / (ss * ss))])
+            row += bytes([*rgb, round(255 * hits / (ss * ss))])
         rows.append(bytes(row))
     def chunk(t, d): return struct.pack('>I', len(d)) + t + d + struct.pack('>I', zlib.crc32(t + d))
     ihdr = struct.pack('>IIBBBBB', size, size, 8, 6, 0, 0, 0)
@@ -33,6 +33,10 @@ png(18, 'src/trayTemplate.png')
 png(36, 'src/trayTemplate@2x.png')
 png(18, 'src/trayWaitTemplate.png', wait=True)
 png(36, 'src/trayWaitTemplate@2x.png', wait=True)
+png(18, 'src/tray.png', rgb=(255, 255, 255))
+png(36, 'src/tray@2x.png', rgb=(255, 255, 255))
+png(18, 'src/trayWait.png', wait=True, rgb=(255, 255, 255))
+png(36, 'src/trayWait@2x.png', wait=True, rgb=(255, 255, 255))
 assert inside(15.3, 2.9, wait=True) and not inside(15.3, 2.9) and inside(11.5, 8.0, wait=True), 'bubble check'
 assert inside(9, 9.8) and inside(9, 12) and not inside(6.5, 9.8) and not inside(1, 3), 'shape check'
 print('ok')

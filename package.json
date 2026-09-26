@@ -9,6 +9,7 @@
     "start": "electron .",
     "check": "node src/agents.js && node src/pr.js && node src/usage.js",
     "build": "electron-packager . Slimey --platform=darwin --arch=arm64 --out=dist --overwrite",
+    "build:win": "electron-packager . Slimey --platform=win32 --arch=x64 --out=dist --overwrite",
     "icon": "python3 scripts/tray-icon.py",
     "shots": "electron scripts/shots.js"
   },
