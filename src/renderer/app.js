@@ -150,6 +150,11 @@ function sessionItem(s) {
   const el = li(`sess is-${s.state}`,
     `${s.model ? `<div class="meta"><code>${s.model}</code></div>` : ''}<div class="meta">입력 ${fmt(s.input)} · 출력 ${fmt(s.output)} · ${s.turns}턴</div>`);
   const t = document.createElement('span'); t.className = 'topic'; t.textContent = s.topic || '(제목 없음)'; el.prepend(t); // 사용자 텍스트는 textContent 로
+  if (s.pid) {
+    const x = document.createElement('button'); x.className = 'kill'; x.textContent = '×'; x.title = '세션 종료';
+    x.onclick = (e) => { e.stopPropagation(); window.api.kill(s.pid); el.classList.add('is-dying'); };
+    el.prepend(x);
+  }
   return el;
 }
 

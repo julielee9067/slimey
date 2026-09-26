@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('api', {
   throw: (vx, vy) => ipcRenderer.send('throw', vx, vy),
   stop: () => ipcRenderer.send('stop'),
   list: (open) => ipcRenderer.send('list', open),
+  kill: (pid) => ipcRenderer.send('kill', pid),
   onList: (handler) => ipcRenderer.on('list', (_e, open) => handler(open)),
   onBounce: (handler) => ipcRenderer.on('bounce', (_e, hit, impact) => handler(hit, impact)),
 });

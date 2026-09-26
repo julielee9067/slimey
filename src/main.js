@@ -154,6 +154,12 @@ ipcMain.on('list', (_e, open = !listWin.isVisible()) => {
 
 ipcMain.on('open', (_e, url) => { if (/^https?:\/\//.test(url)) shell.openExternal(url); }); // PR 클릭 → 브라우저
 
+// 목록의 × → 그 세션 프로세스 종료. 죽으면 다음 pollAgents 에서 빠진다
+ipcMain.on('kill', (_e, pid) => {
+  if (!Number.isInteger(pid) || pid <= 1) return;
+  try { process.kill(pid); } catch { /* 이미 죽음 */ }
+  setTimeout(pollAgents, 500);
+});
 ipcMain.on('stop', stopFlight); // 날아가는 중에 잡으면 멈춘다. 창은 건드리지 않는다(setPosition 은 드래그 추적을 끊는다)
 
 ipcMain.on('move', (_e, dx, dy) => {

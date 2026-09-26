@@ -143,6 +143,10 @@ body.is-list { -webkit-app-region: no-drag; } /* 자식 창만 따로 끌려가�
 .list .repo { font-weight: 600; cursor: default; padding-bottom: 0; }
 .list .repo:hover { background: none; }
 .list .sess { padding-left: 16px; }
+.list .kill { float: right; border: 0; background: none; color: inherit; font: inherit; font-size: 14px; line-height: 1; padding: 0 4px; cursor: pointer; opacity: 0; }
+.list .sess:hover .kill { opacity: .5; }
+.list .kill:hover { opacity: 1; color: #e5484d; }
+.list .sess.is-dying { opacity: .4; pointer-events: none; }
 .list .meta { padding-left: 20px; font-size: 11px; opacity: .7; margin-top: 2px; }
 .list code { font-family: ui-monospace, Menlo, monospace; font-size: 10px; background: rgba(127,127,127,.12); padding: 0 4px; border-radius: 4px; }
 .list .tabs { display: flex; gap: 4px; padding: 4px 0; cursor: default; }

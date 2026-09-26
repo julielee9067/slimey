@@ -113,7 +113,7 @@ function classify(last, ageMs) {
   return last === 'said' && ageMs < WAITING_MS ? 'waiting' : 'idle';
 }
 
-/** 살아있는 Claude Code 세션: ~/.claude/sessions/<pid>.json → sessionId → status(busy|idle). pid 가 죽었으면 뺀다. */
+/** 살아있는 Claude Code 세션: ~/.claude/sessions/<pid>.json → sessionId → {status(busy|idle), pid}. pid 가 죽었으면 뺀다. */
 function claudeRegistry() {
   const dir = path.join(os.homedir(), '.claude', 'sessions');
   const out = new Map();
@@ -123,17 +123,23 @@ function claudeRegistry() {
     try {
       const r = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
       process.kill(r.pid, 0); // 죽은 pid 면 throw
-      out.set(r.sessionId, r.status);
+      out.set(r.sessionId, { status: r.status, pid: r.pid });
     } catch { /* 죽었거나 깨진 파일 */ }
   }
   return out;
 }
 
-/** 지금 떠 있는 codex 프로세스의 cwd 집합. lsof 가 없으면 null(모른다). Codex 는 세션 레지스트리가 없어서 이걸로 판별. */
+/** 지금 떠 있는 codex 프로세스: cwd → pid. lsof 가 없으면 null(모른다). Codex 는 세션 레지스트리가 없어서 이걸로 판별. */
 function aliveCwds() {
   try {
-    const out = execFileSync('lsof', ['-a', '-d', 'cwd', '-c', 'codex', '-Fn'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
-    return new Set(out.split('\n').filter((l) => l[0] === 'n').map((l) => l.slice(1)));
+    const out = execFileSync('lsof', ['-a', '-d', 'cwd', '-c', 'codex', '-Fpn'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    const m = new Map();
+    let pid = null;
+    for (const l of out.split('\n')) {
+      if (l[0] === 'p') pid = Number(l.slice(1));
+      else if (l[0] === 'n') m.set(l.slice(1), pid);
+    }
+    return m;
   } catch { return null; }
 }
 
@@ -167,6 +173,7 @@ function readAgents() {
   const now = Date.now();
   const out = [];
   const reg = claudeRegistry();
+  const cwds = aliveCwds();
   const usage = {};
   for (const { agent } of ROOTS) usage[agent] = { today: { input: 0, output: 0 }, month: { input: 0, output: 0 } };
   for (const s of sessions.values()) {
@@ -177,13 +184,16 @@ function readAgents() {
     if (s.mtime >= dayStart()) { u.today.input += s.input; u.today.output += s.output; }
     if (now - s.mtime > RECENT_MS) continue;
     let state = classify(s.last, now - s.mtime);
+    let pid = cwds?.get(s.cwd) ?? null;
     if (s.agent === 'claude') {
-      const status = reg.get(path.basename(s.file, '.jsonl'));
-      if (!status) continue; // 닫힌 세션
-      state = status === 'busy' ? 'working' : 'waiting'; // idle = 말 끝내고 내 차례
+      const r = reg.get(path.basename(s.file, '.jsonl'));
+      if (!r) continue; // 닫힌 세션
+      state = r.status === 'busy' ? 'working' : 'waiting'; // idle = 말 끝내고 내 차례
+      pid = r.pid;
     }
     out.push({
       agent: s.agent,
+      pid,
       cwd: s.cwd,
       project: s.cwd ? path.basename(s.cwd) : '?',
       topic: s.title || s.topic,
@@ -195,7 +205,7 @@ function readAgents() {
       idleMs: now - s.mtime,
     });
   }
-  return { sessions: alive(out, aliveCwds()), usage };
+  return { sessions: alive(out, cwds), usage };
 }
 
 module.exports = { readAgents, classify, alive, topicOf };
